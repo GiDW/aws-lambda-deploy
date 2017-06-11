@@ -1,0 +1,28 @@
+{
+  "name": "aws-node-lambda-helper",
+  "version": "1.0.0",
+  "description": "Helper module for deploying AWS Lambda functions in Node.js.",
+  "author": "Gilles De Waele",
+  "keywords": [
+    "aws",
+    "aws-lambda",
+    "lambda",
+    "amazon",
+    "node",
+    "deploy",
+    "deployment",
+    "helper"
+  ],
+  "dependencies": {
+    "aws-sdk": "2.66.0"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:GiDW/aws-node-lambda-helper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GiDW/aws-node-lambda-helper/issues",
+    "email": "de.waele.gilles@gmail.com"
+  }
+}
