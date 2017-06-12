@@ -20,7 +20,11 @@ const AWS_LAMBDA_VERSION = '2015-03-31';
 const AUTH_TYPE_PROFILE = 'profile';
 const AUTH_TYPE_KEYS = 'keys';
 
+const K_API_VERSION = 'apiVersion';
+const K_CREDENTIALS = 'credentials';
 const K_CONFIGURATION = 'Configuration';
+const K_DRY_RUN = 'DryRun';
+const K_CODE_SHA_256 = 'CodeSha256';
 const K_CODE = 'Code';
 const K_ZIP_FILE = 'ZipFile';
 
@@ -46,6 +50,9 @@ const K_VARIABLES = 'Variables';
 const DEFAULT_CFG = {};
 const DEFAULT_AWS_CFG = {};
 
+let verbose = false;
+let codeSha256 = '';
+
 // Set defaults
 setDefaults(FILE_LAMBDA_CFG);
 setDefaults(FILE_LAMBDA_AWS_CFG);
@@ -53,6 +60,12 @@ setDefaults(FILE_LAMBDA_AWS_CFG);
 processCommand();
 
 function processCommand () {
+
+    if (process.argv[3] === '-d') {
+
+        verbose = true;
+
+    }
 
     switch (process.argv[2]) {
         case CMD_INIT:
@@ -137,10 +150,9 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
 
     let getFunctionOptions;
 
-    const lambdaOptions = {
-        'apiVersion': AWS_LAMBDA_VERSION,
-        'region': lambdaAwsCfg[K_REGION]
-    };
+    const lambdaOptions = {};
+    lambdaOptions[K_API_VERSION] = AWS_LAMBDA_VERSION;
+    lambdaOptions[K_REGION] = lambdaAwsCfg[K_REGION];
 
     switch (checkAuthentication(lambdaAwsCfg)) {
         case AUTH_TYPE_PROFILE:
@@ -149,7 +161,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                 'profile': lambdaAwsCfg[K_PROFILE]
             });
 
-            lambdaOptions['credentials'] = credentials;
+            lambdaOptions[K_CREDENTIALS] = credentials;
 
             break;
         case AUTH_TYPE_KEYS:
@@ -188,13 +200,26 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
 
                         if (answer === true) {
 
-                            createFunction(lambdaCfg, lambdaAwsCfg);
+                            createFunction(
+                                lambda,
+                                lambdaCfg,
+                                lambdaAwsCfg
+                            );
 
                         }
                     }
                 );
             }
         } else {
+
+            if (verbose) console.info('Lambda function retrieved', data);
+
+            // Store the CodeSha256
+            if (isNEString(data[K_CODE_SHA_256])) {
+
+                codeSha256 = data[K_CODE_SHA_256];
+
+            }
 
             if (!compareLambdaConfig(
                     data[K_CONFIGURATION],
@@ -217,8 +242,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                             );
                             updateCode(
                                 lambda,
-                                lambdaCfg,
-                                lambdaAwsCfg
+                                lambdaCfg
                             );
 
                         }
@@ -228,8 +252,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
 
                 updateCode(
                     lambda,
-                    lambdaCfg,
-                    lambdaAwsCfg
+                    lambdaCfg
                 );
 
             }
@@ -269,8 +292,17 @@ function createFunction (lambda, lambdaCfg, lambdaAwsCfg) {
 
         } else {
 
-            console.info('AWS Lambda function created', data);
+            if (verbose) {
 
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') created', data);
+
+            } else {
+
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') created');
+
+            }
         }
     }
 }
@@ -296,8 +328,17 @@ function updateConfiguration (lambda, lambdaCfg, lambdaAwsCfg) {
 
         } else {
 
-            console.info('AWS Lambda function configuration updated');
+            if (verbose) {
 
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') configuration updated',
+                    data);
+
+            } else {
+
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') configuration updated');
+            }
         }
     }
 }
@@ -307,11 +348,86 @@ function updateConfiguration (lambda, lambdaCfg, lambdaAwsCfg) {
  *
  * @param {Lambda} lambda
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
  */
-function updateCode (lambda, lambdaCfg, lambdaAwsCfg) {
+function updateCode (lambda, lambdaCfg) {
 
+    getZip(lambdaCfg[K_ARCHIVE_NAME], onZip);
 
+    const params = {};
+    params[K_FUNCTION_NAME] = lambdaCfg[K_FUNCTION_NAME];
+    params[K_PUBLISH] = lambdaCfg[K_PUBLISH];
+    params[K_DRY_RUN] = true;
+
+    function onZip (err, zip) {
+
+        if (!err) {
+
+            params[K_ZIP_FILE] = zip;
+
+            lambda.updateFunctionCode(params, onUpdateFunctionDry);
+        }
+    }
+
+    function onUpdateFunctionDry (err, data) {
+
+        if (err) {
+
+            console.error('Error updating AWS Lambda code', err);
+
+        } else {
+
+            let newCodeSha256;
+
+            if (isNEString(data[K_CODE_SHA_256])) {
+
+                newCodeSha256 = data[K_CODE_SHA_256];
+
+                if (newCodeSha256 === codeSha256) {
+
+                    console.info('No need to update AWS Lambda function (' +
+                        lambdaCfg[K_FUNCTION_NAME] + ')');
+
+                } else {
+
+                    params[K_DRY_RUN] = false;
+
+                    lambda.updateFunctionCode(params, onUpdateFunction);
+
+                }
+
+            } else {
+
+                console.warn('Invalid CodeSHA256');
+
+                params[K_DRY_RUN] = false;
+
+                lambda.updateFunctionCode(params, onUpdateFunction);
+
+            }
+        }
+    }
+
+    function onUpdateFunction (err, data) {
+
+        if (err) {
+
+            console.error('Error updating AWS Lambda code', err);
+
+        } else {
+
+            if (verbose) {
+
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') updated', data);
+
+            } else {
+
+                console.info('AWS Lambda function (' +
+                    lambdaCfg[K_FUNCTION_NAME] + ') updated');
+
+            }
+        }
+    }
 }
 
 // Helper functions
@@ -612,11 +728,13 @@ function compareLambdaConfig (actualLambdaCfg,
  */
 function printUsage () {
     console.info(
-        '\n  Usage: node-lambda [command]\n' +
+        '\n  Usage: node-lambda [command] [options]\n' +
         '\n  Commands:\n\n' +
         '    init\t\tCreate the config files\n' +
         '    test\t\tRun test\n' +
         '    deploy\t\tDeploy the Lambda to AWS\n' +
+        '\n  Options:\n\n' +
+        '    -v  \t\tVerbose' +
         '\n'
     );
 }
