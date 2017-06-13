@@ -13,7 +13,7 @@ const CMD_TEST = 'test';
 const CMD_DEPLOY = 'deploy';
 
 const FILE_LAMBDA_CFG = 'lambda-config.json';
-const FILE_LAMBDA_AWS_CFG = 'lambda-aws-config.json';
+const FILE_LAMBDA_AWS_CFG = 'lambda-secrets.json';
 
 const AWS_LAMBDA_VERSION = '2015-03-31';
 
@@ -50,7 +50,10 @@ const K_VARIABLES = 'Variables';
 const DEFAULT_CFG = {};
 const DEFAULT_AWS_CFG = {};
 
+// Helper variables
+
 let verbose = false;
+let force = false;
 let codeSha256 = '';
 
 // Set defaults
@@ -61,13 +64,32 @@ processCommand();
 
 function processCommand () {
 
-    if (process.argv[3] === '-d') {
+    let args = process.argv;
+    let length = args.length;
 
-        verbose = true;
+    if (length > 3) {
 
+        let i;
+        for (i = 3; i < length; i++) {
+
+            switch (args[i]) {
+                case '-v':
+                case '--verbose':
+
+                    verbose = true;
+
+                    break;
+                case '-f':
+                case '--force':
+
+                    force = true;
+
+                    break;
+            }
+        }
     }
 
-    switch (process.argv[2]) {
+    switch (args[2]) {
         case CMD_INIT:
 
             init();
@@ -221,7 +243,19 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
 
             }
 
-            if (!compareLambdaConfig(
+            if (force) {
+
+                updateConfiguration(
+                    lambda,
+                    lambdaCfg,
+                    lambdaAwsCfg
+                );
+                updateCode(
+                    lambda,
+                    lambdaCfg
+                );
+
+            } else if (!compareLambdaConfig(
                     data[K_CONFIGURATION],
                     lambdaCfg,
                     lambdaAwsCfg
@@ -248,6 +282,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                         }
                     }
                 );
+
             } else {
 
                 updateCode(
@@ -364,7 +399,16 @@ function updateCode (lambda, lambdaCfg) {
 
             params[K_ZIP_FILE] = zip;
 
-            lambda.updateFunctionCode(params, onUpdateFunctionDry);
+            if (force) {
+
+                params[K_DRY_RUN] = false;
+                lambda.updateFunctionCode(params, onUpdateFunction);
+
+            } else {
+
+                lambda.updateFunctionCode(params, onUpdateFunctionDry);
+
+            }
         }
     }
 
@@ -372,7 +416,7 @@ function updateCode (lambda, lambdaCfg) {
 
         if (err) {
 
-            console.error('Error updating AWS Lambda code', err);
+            console.error('Error updating AWS Lambda code Dry', err);
 
         } else {
 
