@@ -13,7 +13,9 @@ const CMD_TEST = 'test';
 const CMD_DEPLOY = 'deploy';
 
 const FILE_LAMBDA_CFG = 'lambda-config.json';
-const FILE_LAMBDA_AWS_CFG = 'lambda-secrets.json';
+const FILE_LAMBDA_SECRETS = 'lambda-secrets.json';
+
+const DEFAULT_FILE_TESTS = 'lambda-tests.json';
 
 const AWS_LAMBDA_VERSION = '2015-03-31';
 
@@ -48,7 +50,7 @@ const K_ENVIRONMENT = 'Environment';
 const K_VARIABLES = 'Variables';
 
 const DEFAULT_CFG = {};
-const DEFAULT_AWS_CFG = {};
+const DEFAULT_SECRETS = {};
 
 // Helper variables
 
@@ -58,12 +60,13 @@ let codeSha256 = '';
 
 // Set defaults
 setDefaults(FILE_LAMBDA_CFG);
-setDefaults(FILE_LAMBDA_AWS_CFG);
+setDefaults(FILE_LAMBDA_SECRETS);
 
 processCommand();
 
 function processCommand () {
 
+    let remainingArguments = [];
     let args = process.argv;
     let length = args.length;
 
@@ -85,6 +88,9 @@ function processCommand () {
                     force = true;
 
                     break;
+                default:
+
+                    remainingArguments.push(args[i]);
             }
         }
     }
@@ -96,6 +102,24 @@ function processCommand () {
 
             break;
         case CMD_TEST:
+
+            length = remainingArguments.length;
+
+            // Check for tests file argument
+            if (length > 0) {
+
+                // Check for single file
+                if (length === 1) {
+
+                    test(remainingArguments[0]);
+
+                } else {
+
+                    printTestUsage();
+                }
+
+            }
+
             break;
         case CMD_DEPLOY:
 
@@ -110,37 +134,174 @@ function processCommand () {
 
 function init () {
 
-    const getConfgiOptions = {
-        check: false,
-        init: true
-    };
-
-    getConfig(FILE_LAMBDA_CFG, getConfgiOptions, onLambdaConfig);
-    getConfig(FILE_LAMBDA_AWS_CFG, getConfgiOptions, onLambdaAwsConfig);
+    getJSON(
+        FILE_LAMBDA_CFG,
+        {
+            printErrors: false,
+            checkFileType: ''
+        },
+        onLambdaConfig
+    );
+    getJSON(
+        FILE_LAMBDA_SECRETS,
+        {
+            printErrors: false,
+            checkFileType: ''
+        },
+        onLambdaAwsConfig
+    );
 
     function onLambdaConfig (obj) {
 
-        if (!isObject(obj)) writeConfig(FILE_LAMBDA_CFG, DEFAULT_CFG);
+        if (!isObject(obj)) writeJSON(FILE_LAMBDA_CFG, DEFAULT_CFG);
     }
 
     function onLambdaAwsConfig (obj) {
 
-        if (!isObject(obj)) writeConfig(FILE_LAMBDA_AWS_CFG, DEFAULT_AWS_CFG);
+        if (!isObject(obj)) writeJSON(FILE_LAMBDA_SECRETS, DEFAULT_SECRETS);
     }
+}
+
+/**
+ * @param {string} testsFile
+ */
+function test (testsFile) {
+
+    let lambdaCfg;
+    let tests;
+
+    getJSON(
+        FILE_LAMBDA_CFG,
+        {
+            printErrors: true,
+            checkFileType: FILE_LAMBDA_CFG
+        },
+        onLambdaConfig
+    );
+
+    if (isNEString(testsFile)) {
+
+        getJSON(
+            testsFile,
+            {
+                printErrors: true,
+                checkFileType: DEFAULT_FILE_TESTS
+            },
+            onLambdaTests
+        );
+
+    }
+
+    /**
+     * @param {Array|string} obj
+     */
+    function onLambdaTests (obj) {
+
+        if (Array.isArray(obj)) tests = obj;
+        continueTest();
+
+    }
+
+    function onLambdaConfig (obj) {
+
+        if (isObject(obj)) lambdaCfg = obj;
+        continueTest();
+
+    }
+
+    function continueTest () {
+
+        if (tests && lambdaCfg) executeTests(tests, lambdaCfg);
+    }
+}
+
+/**
+ * Executa all tests
+ *
+ * @param {Array} tests
+ * @param {Object} lambdaCfg
+ */
+function executeTests (tests, lambdaCfg) {
+
+    let splits;
+
+    splits = lambdaCfg[K_HANDLER].split('.');
+
+    if (splits.length === 2) {
+
+        const handler = require(splits[0])[splits[1]];
+
+        let i, length;
+
+        length = tests.length;
+        for (i = 0; i < length; i++) {
+
+            executeContextTest(tests[i], handler, i);
+
+        }
+
+    } else {
+
+        console.error('Invalid ' + K_HANDLER, lambdaCfg[K_HANDLER]);
+    }
+
+    /**
+     * @param {Object} test
+     * @param {function} handler
+     * @param {number} id Test number
+     */
+    function executeContextTest (test, handler, id) {
+
+        let i, length;
+
+        length = test.events.length;
+        for (i = 0; i < length; i++) {
+
+            // Execute handler with test data
+            handler(test.events[i], test.context, callback.bind(null, i));
+
+        }
+
+        function callback (i, err, data) {
+
+            if (err) {
+
+                console.log('Test (' + id + '-' + i + ') returned an error',
+                    err);
+
+            } else {
+
+                console.log('Test (' + id + '-' + i + ') completed',
+                    data);
+
+            }
+        }
+
+    }
+
 }
 
 function deploy () {
 
-    const getConfgiOptions = {
-        check: true,
-        init: false
-    };
-
     let lambdaCfg;
-    let lambdaAwsCfg;
+    let lambdaSecrets;
 
-    getConfig(FILE_LAMBDA_CFG, getConfgiOptions, onLambdaConfig);
-    getConfig(FILE_LAMBDA_AWS_CFG, getConfgiOptions, onLambdaAwsConfig);
+    getJSON(
+        FILE_LAMBDA_CFG,
+        {
+            printErrors: true,
+            checkFileType: FILE_LAMBDA_CFG
+        },
+        onLambdaConfig
+    );
+    getJSON(
+        FILE_LAMBDA_SECRETS,
+        {
+            printErrors: true,
+            checkFileType: FILE_LAMBDA_SECRETS
+        },
+        onLambdaAwsConfig
+    );
 
     function onLambdaConfig (obj) {
 
@@ -150,37 +311,37 @@ function deploy () {
 
     function onLambdaAwsConfig (obj) {
 
-        if (isObject(obj)) lambdaAwsCfg = obj;
+        if (isObject(obj)) lambdaSecrets = obj;
         continueDeploy();
     }
 
     function continueDeploy () {
 
-        if (isObject(lambdaCfg) && isObject(lambdaAwsCfg)) {
+        if (isObject(lambdaCfg) && isObject(lambdaSecrets)) {
 
             // Check the current Lambda function (if any)
-            awsDeploy(lambdaCfg, lambdaAwsCfg);
+            awsDeploy(lambdaCfg, lambdaSecrets);
         }
     }
 }
 
 /**
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
+ * @param {Object} lambdaSecrets
  */
-function awsDeploy (lambdaCfg, lambdaAwsCfg) {
+function awsDeploy (lambdaCfg, lambdaSecrets) {
 
     let getFunctionOptions;
 
     const lambdaOptions = {};
     lambdaOptions[K_API_VERSION] = AWS_LAMBDA_VERSION;
-    lambdaOptions[K_REGION] = lambdaAwsCfg[K_REGION];
+    lambdaOptions[K_REGION] = lambdaSecrets[K_REGION];
 
-    switch (checkAuthentication(lambdaAwsCfg)) {
+    switch (checkAuthentication(lambdaSecrets)) {
         case AUTH_TYPE_PROFILE:
 
             const credentials = new AWS.SharedIniFileCredentials({
-                'profile': lambdaAwsCfg[K_PROFILE]
+                'profile': lambdaSecrets[K_PROFILE]
             });
 
             lambdaOptions[K_CREDENTIALS] = credentials;
@@ -189,9 +350,9 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
         case AUTH_TYPE_KEYS:
 
             lambdaOptions[K_ACCESS_KEY_ID] =
-                lambdaAwsCfg[K_ACCESS_KEY_ID];
+                lambdaSecrets[K_ACCESS_KEY_ID];
             lambdaOptions[K_SECRET_ACCESS_KEY] =
-                lambdaAwsCfg[K_SECRET_ACCESS_KEY];
+                lambdaSecrets[K_SECRET_ACCESS_KEY];
 
             break;
     }
@@ -225,7 +386,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                             createFunction(
                                 lambda,
                                 lambdaCfg,
-                                lambdaAwsCfg
+                                lambdaSecrets
                             );
 
                         }
@@ -248,7 +409,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                 updateConfiguration(
                     lambda,
                     lambdaCfg,
-                    lambdaAwsCfg
+                    lambdaSecrets
                 );
                 updateCode(
                     lambda,
@@ -258,7 +419,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
             } else if (!compareLambdaConfig(
                     data[K_CONFIGURATION],
                     lambdaCfg,
-                    lambdaAwsCfg
+                    lambdaSecrets
                 )) {
 
                 askConfirmation(
@@ -272,7 +433,7 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
                             updateConfiguration(
                                 lambda,
                                 lambdaCfg,
-                                lambdaAwsCfg
+                                lambdaSecrets
                             );
                             updateCode(
                                 lambda,
@@ -300,9 +461,9 @@ function awsDeploy (lambdaCfg, lambdaAwsCfg) {
  *
  * @param {Lambda} lambda
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
+ * @param {Object} lambdaSecrets
  */
-function createFunction (lambda, lambdaCfg, lambdaAwsCfg) {
+function createFunction (lambda, lambdaCfg, lambdaSecrets) {
 
     getZip(lambdaCfg[K_ARCHIVE_NAME], onZip);
 
@@ -310,7 +471,7 @@ function createFunction (lambda, lambdaCfg, lambdaAwsCfg) {
 
         if (!err) {
 
-            const params = generateLambdaConfig(lambdaCfg, lambdaAwsCfg);
+            const params = generateLambdaConfig(lambdaCfg, lambdaSecrets);
 
             params[K_CODE] = {};
             params[K_CODE][K_ZIP_FILE] = zip;
@@ -347,11 +508,11 @@ function createFunction (lambda, lambdaCfg, lambdaAwsCfg) {
  *
  * @param {Lambda} lambda
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
+ * @param {Object} lambdaSecrets
  */
-function updateConfiguration (lambda, lambdaCfg, lambdaAwsCfg) {
+function updateConfiguration (lambda, lambdaCfg, lambdaSecrets) {
 
-    const params = generateLambdaConfig(lambdaCfg, lambdaAwsCfg);
+    const params = generateLambdaConfig(lambdaCfg, lambdaSecrets);
 
     lambda.updateFunctionConfiguration(params, onUpdateFunctionConfiguration);
 
@@ -507,10 +668,10 @@ function getZip (zipName, callback) {
 
 /**
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
+ * @param {Object} lambdaSecrets
  * @returns {Object}
  */
-function generateLambdaConfig (lambdaCfg, lambdaAwsCfg) {
+function generateLambdaConfig (lambdaCfg, lambdaSecrets) {
     let result = {};
 
     result[K_FUNCTION_NAME] = lambdaCfg[K_FUNCTION_NAME];
@@ -522,8 +683,8 @@ function generateLambdaConfig (lambdaCfg, lambdaAwsCfg) {
     result[K_TAGS] = lambdaCfg[K_TAGS];
     result[K_PUBLISH] = lambdaCfg[K_PUBLISH];
 
-    result[K_ROLE] = lambdaAwsCfg[K_ROLE];
-    result[K_ENVIRONMENT] = lambdaAwsCfg[K_ENVIRONMENT];
+    result[K_ROLE] = lambdaSecrets[K_ROLE];
+    result[K_ENVIRONMENT] = lambdaSecrets[K_ENVIRONMENT];
 
     return result;
 }
@@ -549,23 +710,23 @@ function setDefaults (file) {
             DEFAULT_CFG[K_TIMEOUT] = 3;
 
             break;
-        case FILE_LAMBDA_AWS_CFG:
+        case FILE_LAMBDA_SECRETS:
 
-            DEFAULT_AWS_CFG[K_REGION] = '';
-            DEFAULT_AWS_CFG[K_PROFILE] = '';
-            DEFAULT_AWS_CFG[K_ACCESS_KEY_ID] = '';
-            DEFAULT_AWS_CFG[K_SECRET_ACCESS_KEY] = '';
-            DEFAULT_AWS_CFG[K_ROLE] = '';
-            DEFAULT_AWS_CFG[K_ENVIRONMENT] = null;
+            DEFAULT_SECRETS[K_REGION] = '';
+            DEFAULT_SECRETS[K_PROFILE] = '';
+            DEFAULT_SECRETS[K_ACCESS_KEY_ID] = '';
+            DEFAULT_SECRETS[K_SECRET_ACCESS_KEY] = '';
+            DEFAULT_SECRETS[K_ROLE] = '';
+            DEFAULT_SECRETS[K_ENVIRONMENT] = null;
 
             break;
     }
 }
 
 /**
- * @typedef {Object} GetConfigOptions
- * @property {boolean} check
- * @property {boolean} init
+ * @typedef {Object} GetJSONOptions
+ * @property {boolean} printErrors
+ * @property {string} checkFileType
  */
 
 /**
@@ -574,71 +735,79 @@ function setDefaults (file) {
  */
 
 /**
- * Retrieves the specified config and checks for errors
+ * Retrieves the specified json file
  *
  * @param {string} file
- * @param {GetConfigOptions} options
+ * @param {GetJSONOptions} options
  * @param {onConfig} callback
  */
-function getConfig (file, options, callback) {
+function getJSON (file, options, callback) {
 
-    fs.readFile(file, 'utf8', onLambdaConfig);
+    fs.readFile(file, 'utf8', onFile);
 
-    function onLambdaConfig (err, data) {
+    function onFile (err, data) {
 
+        let errorMessage = '';
         let isValid = false;
 
         if (err) {
 
-            if (!options.init) console.error('Invalid ' + file + ' file');
+            errorMessage = 'Invalid ' + file + ' file';
+            if (options.printErrors) console.error(errorMessage);
 
         } else {
 
-            let lambdaConfig;
+            let object;
 
             try {
 
-                lambdaConfig = JSON.parse(data);
+                object = JSON.parse(data);
 
             } catch (err) {
 
-                console.error('Invalid JSON ' + file);
+                errorMessage = 'Invalid JSON ' + file;
+                if (options.printErrors) console.error(errorMessage);
             }
 
-            if (lambdaConfig) {
+            if (object) {
 
-                if (options.check) {
+                if (isNEString(options.checkFileType)) {
 
-                    if (checkLambdaConfig(lambdaConfig, file)) {
+                    if (checkJSONObject(object, file, options.printErrors)) {
 
                         // Config is valid and checked
                         isValid = true;
-                        callback(lambdaConfig);
+                        callback(object);
+
+                    } else {
+
+                        errorMessage = 'Invalid object ' + file;
 
                     }
+
                 } else {
 
                     // Config is valid
                     isValid = true;
-                    callback(lambdaConfig);
+                    callback(object);
 
                 }
             }
         }
 
-        if (!isValid) callback(null);
+        if (!isValid) callback(errorMessage);
     }
 }
 
 /**
  * @param {string} file
- * @param {Object} config
+ * @param {Object} object
  */
-function writeConfig (file, config) {
+function writeJSON (file, object) {
 
     fs.writeFile(
         file,
-        JSON.stringify(config, null, 2) + os.EOL,
+        JSON.stringify(object, null, 2) + os.EOL,
         'utf8',
         onWrite
     );
@@ -650,18 +819,19 @@ function writeConfig (file, config) {
 }
 
 /**
- * @param {object} config
- * @param {string} file
+ * @param {Object|Array} object
+ * @param {string} fileType
+ * @param {boolean} [printErrors = false]
  * @returns {boolean}
  */
-function checkLambdaConfig (config, file) {
+function checkJSONObject (object, fileType, printErrors) {
     let result;
 
-    result = isObject(config);
+    result = isObject(object);
 
     if (result) {
 
-        switch (file) {
+        switch (fileType) {
             case FILE_LAMBDA_CFG:
 
                 checkNEString(K_ARCHIVE_NAME);
@@ -669,10 +839,31 @@ function checkLambdaConfig (config, file) {
                 checkNEString(K_HANDLER);
 
                 break;
-            case FILE_LAMBDA_AWS_CFG:
+            case FILE_LAMBDA_SECRETS:
 
                 checkNEString(K_REGION);
                 checkNEString(K_ROLE);
+
+                break;
+            case DEFAULT_FILE_TESTS:
+
+                if (Array.isArray(object)) {
+
+                    let i, length;
+                    length = object.length;
+                    for (i = 0; i < length; i++) {
+
+                        if (!(isObject(object[i]) &&
+                            Array.isArray(object[i].events))) {
+
+                            result = false;
+                        }
+                    }
+
+                } else {
+
+                    result = false;
+                }
 
                 break;
             default:
@@ -682,7 +873,8 @@ function checkLambdaConfig (config, file) {
 
     } else {
 
-        console.error('Invalid ' + file);
+        if (printErrors) console.error('Invalid ' + fileType);
+
     }
 
     return result;
@@ -690,15 +882,14 @@ function checkLambdaConfig (config, file) {
     function checkNEString (property) {
         let isValid;
 
-        isValid = isNEString(config[property]);
-        if (!isValid) console.error('Invalid ' + property);
+        isValid = isNEString(object[property]);
+        if (printErrors && !isValid) console.error('Invalid ' + property);
 
         result = result === true && isValid;
     }
 }
 
 /**
- *
  * @param {Object} config
  * @returns {string}
  */
@@ -723,19 +914,19 @@ function checkAuthentication (config) {
  *
  * @param {Object} actualLambdaCfg
  * @param {Object} lambdaCfg
- * @param {Object} lambdaAwsCfg
+ * @param {Object} lambdaSecrets
  * @returns {boolean}
  */
 function compareLambdaConfig (actualLambdaCfg,
                               lambdaCfg,
-                              lambdaAwsCfg) {
+                              lambdaSecrets) {
     let result;
 
     if (isObject(actualLambdaCfg) && isObject(lambdaCfg)) {
 
         result = true;
 
-        checkProperty(lambdaAwsCfg, K_ROLE);
+        checkProperty(lambdaSecrets, K_ROLE);
         checkProperty(lambdaCfg, K_DESCRIPTION);
         checkProperty(lambdaCfg, K_HANDLER);
         checkProperty(lambdaCfg, K_RUNTIME);
@@ -747,7 +938,7 @@ function compareLambdaConfig (actualLambdaCfg,
             result === true &&
             compareEnvironment(
                 actualLambdaCfg[K_ENVIRONMENT],
-                lambdaAwsCfg[K_ENVIRONMENT]
+                lambdaSecrets[K_ENVIRONMENT]
             )
         );
 
@@ -783,6 +974,42 @@ function printUsage () {
     );
 }
 
+function printTestUsage () {
+
+    console.info(
+        '\n  Usage: node-lambda test [tests_file] [options]\n' +
+        '\n  tests_file:\t\tJSON file with following structure:\n' +
+        '               \t\t{Array.<{name: string, context: ?Object,' +
+        ' events: Array.<Object>}>}\n' +
+        '               \t\tA test object can have a property {string} name.\n' +
+        '               \t\tFor example:\n\n' +
+        '               \t\t[\n' +
+        '               \t\t  {\n' +
+        '               \t\t    "name": "Context - Request ID"\n' +
+        '               \t\t    "context": {\n' +
+        '               \t\t      "awsRequestId": 12345\n' +
+        '               \t\t    }.\n' +
+        '               \t\t    "events": [\n' +
+        '               \t\t      {\n' +
+        '               \t\t        "val1": "abc"\n' +
+        '               \t\t      },\n' +
+        '               \t\t      {\n' +
+        '               \t\t        "val1": 45\n' +
+        '               \t\t      }\n' +
+        '               \t\t    ]\n' +
+        '               \t\t  },\n' +
+        '               \t\t  {\n' +
+        '               \t\t    "context": {\n' +
+        '               \t\t      "clientContext": null\n' +
+        '               \t\t    }.\n' +
+        '               \t\t    "events": {\n' +
+        '               \t\t      "val1": "def"\n' +
+        '               \t\t    }\n' +
+        '               \t\t  }\n' +
+        '               \t\t]\n'
+    );
+}
+
 /**
  * @callback onResponse
  * @param {boolean} response
@@ -801,8 +1028,8 @@ function askConfirmation (question, defaultAnswer, callback) {
 
     options = '';
 
-    if (defaultAnswer === true) options += ' [Y/n]: ';
-    if (defaultAnswer === false) options += ' [y/N]: ';
+    if (defaultAnswer === true) options += ' [Y/n] ';
+    if (defaultAnswer === false) options += ' [y/N] ';
 
     completeQuestion = question + options;
 
