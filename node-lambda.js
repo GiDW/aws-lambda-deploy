@@ -4,6 +4,7 @@
 
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 const readline = require('readline');
 
 const AWS = require('aws-sdk');
@@ -197,16 +198,24 @@ function test (testsFile) {
      */
     function onLambdaTests (obj) {
 
-        if (Array.isArray(obj)) tests = obj;
-        continueTest();
+        console.log('Lamnda tests', obj);
 
+        if (Array.isArray(obj)) {
+
+            tests = obj;
+            continueTest();
+
+        }
     }
 
     function onLambdaConfig (obj) {
 
-        if (isObject(obj)) lambdaCfg = obj;
-        continueTest();
+        if (isObject(obj)) {
 
+            lambdaCfg = obj;
+            continueTest();
+
+        }
     }
 
     function continueTest () {
@@ -224,12 +233,20 @@ function test (testsFile) {
 function executeTests (tests, lambdaCfg) {
 
     let splits;
+    let module;
+    let eventHandler;
+    let filePath;
 
     splits = lambdaCfg[K_HANDLER].split('.');
 
     if (splits.length === 2) {
 
-        const handler = require(splits[0])[splits[1]];
+        module = splits[0];
+        eventHandler = splits[1];
+
+        filePath = path.join(process.cwd(), module + '.js');
+
+        const handler = require(filePath)[eventHandler];
 
         let i, length;
 
@@ -773,7 +790,7 @@ function getJSON (file, options, callback) {
 
                 if (isNEString(options.checkFileType)) {
 
-                    if (checkJSONObject(object, file, options.printErrors)) {
+                    if (checkJSONObject(object, options)) {
 
                         // Config is valid and checked
                         isValid = true;
@@ -820,18 +837,17 @@ function writeJSON (file, object) {
 
 /**
  * @param {Object|Array} object
- * @param {string} fileType
- * @param {boolean} [printErrors = false]
+ * @param {GetJSONOptions} options
  * @returns {boolean}
  */
-function checkJSONObject (object, fileType, printErrors) {
+function checkJSONObject (object, options) {
     let result;
 
     result = isObject(object);
 
     if (result) {
 
-        switch (fileType) {
+        switch (options.checkFileType) {
             case FILE_LAMBDA_CFG:
 
                 checkNEString(K_ARCHIVE_NAME);
@@ -846,6 +862,8 @@ function checkJSONObject (object, fileType, printErrors) {
 
                 break;
             case DEFAULT_FILE_TESTS:
+
+                console.log('Check tests', object);
 
                 if (Array.isArray(object)) {
 
@@ -873,7 +891,11 @@ function checkJSONObject (object, fileType, printErrors) {
 
     } else {
 
-        if (printErrors) console.error('Invalid ' + fileType);
+        if (options.printErrors) {
+
+            console.error('Invalid ' + options.checkFileType);
+
+        }
 
     }
 
@@ -883,7 +905,12 @@ function checkJSONObject (object, fileType, printErrors) {
         let isValid;
 
         isValid = isNEString(object[property]);
-        if (printErrors && !isValid) console.error('Invalid ' + property);
+
+        if (options.printErrors && !isValid) {
+
+            console.error('Invalid ' + property);
+
+        }
 
         result = result === true && isValid;
     }
