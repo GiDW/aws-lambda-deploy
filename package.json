@@ -14,9 +14,12 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "2.66.0"
+    "aws-sdk": "2.72.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "typescript": "2.3.4",
+    "@types/node": "7.0.31"
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:GiDW/aws-node-lambda-helper.git"
