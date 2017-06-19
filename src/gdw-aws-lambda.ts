@@ -1,16 +1,16 @@
 
 import * as fs from 'fs';
-import * as os from "os";
+import * as os from 'os';
 
-import {SharedIniFileCredentials} from "aws-sdk";
+import {SharedIniFileCredentials} from 'aws-sdk';
 import {
     ClientConfiguration,
-    CreateFunctionRequest,
+    CreateFunctionRequest, EnvironmentResponse,
     FunctionConfiguration,
     GetFunctionResponse,
     UpdateFunctionCodeRequest
-} from "aws-sdk/clients/lambda";
-import Lambda = require("aws-sdk/clients/lambda");
+} from 'aws-sdk/clients/lambda';
+import Lambda = require('aws-sdk/clients/lambda');
 
 type LambdaRuntime = 'nodejs6.10' | 'nodejs4.3';
 
@@ -62,7 +62,6 @@ function isLambadConfig (obj: any): obj is LambdaConfig {
         obj.hasOwnProperty('MemorySize') &&
         obj.hasOwnProperty('Timeout')
     );
-
 }
 
 function isLambdaSecrets (obj: any): obj is LambdaSecrets {
@@ -87,10 +86,45 @@ function isLambdaTest (obj: any): obj is LambdaTest {
     );
 }
 
-function isNEString (value: any): boolean {
+/**
+ * Checks whether a given variable is null, undefined, an empty object
+ * or an empty Array
+ *
+ * @param {*} obj
+ * @returns {boolean}
+ */
+function isEmpty (obj: any | null | undefined): boolean {
+    return (
+        obj === undefined ||
+        obj === null ||
+        (isObject(obj) && Object.keys(obj).length === 0) ||
+        (Array.isArray(obj) && obj.length === 0)
+    );
+}
+
+/**
+ * Checks for non-empty string
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isNEString (value: any | null | undefined): boolean {
     return (
         typeof value === 'string' &&
         value.length > 0
+    );
+}
+
+/**
+ * Checks for non-null object
+ *
+ * @param {Object} obj
+ * @returns {boolean}
+ */
+function isObject (obj: any | null | undefined): boolean {
+    return (
+        typeof obj === 'object' &&
+        obj !== null
     );
 }
 
@@ -266,7 +300,7 @@ class GdwAwsLambda {
 
     private checkLambdaConfig (config: Lambda.FunctionConfiguration): boolean {
 
-        return (
+        let isEqual = (
             config &&
             config.FunctionName === this.lambdaCfg.FunctionName &&
             config.Description === this.lambdaCfg.Description &&
@@ -276,6 +310,75 @@ class GdwAwsLambda {
             config.Timeout === this.lambdaCfg.Timeout &&
             config.Role === this.lambdaSecrets.Role
         );
+
+        if (isEqual) {
+
+            isEqual = GdwAwsLambda.compareEnvironment(
+                config.Environment,
+                this.lambdaSecrets.Environment
+            );
+        }
+
+        return isEqual;
+
+    }
+
+    private static compareEnvironment (env1: EnvironmentResponse | null | undefined,
+                                       env2: EnvironmentResponse | null | undefined):
+    boolean {
+
+        if ((isEmpty(env1) || isObject(env1) && env1 && isEmpty(env1.Variables)) &&
+            (isEmpty(env2) || isObject(env2) && env2 && isEmpty(env2.Variables))) {
+
+            return true;
+
+        } else if (isObject(env2) && env2 &&
+            isObject(env2.Variables) &&
+            Object.keys(env2.Variables).length > 0 &&
+            (isEmpty(env1) || isObject(env1) && env1 && isEmpty(env1.Variables))) {
+
+            return false;
+
+        } else if (isObject(env1) && env1 &&
+            isObject(env1.Variables) &&
+            Object.keys(env1.Variables).length > 0 &&
+            (isEmpty(env2) || isObject(env2) && env2 && isEmpty(env2.Variables))) {
+
+            return false;
+
+        } else if (isObject(env1) && env1 && isObject(env1.Variables) &&
+            env1.Variables &&
+            isObject(env2) && env2 && isObject(env2.Variables) &&
+            env2.Variables) {
+
+            let k1 = Object.keys(env1.Variables);
+            let k2 = Object.keys(env2.Variables);
+
+            let l1 = k1.length;
+            let l2 = k2.length;
+
+            if (l1 === l2) {
+
+                let i;
+                for (i = 0; i < l1; i++) {
+
+                    if (env1.Variables[k1[i]] !== env2.Variables[k1[i]]) {
+
+                        return false;
+                    }
+                }
+
+                return true;
+
+            } else {
+
+                return false;
+            }
+
+        } else {
+
+            return false;
+        }
 
     }
 

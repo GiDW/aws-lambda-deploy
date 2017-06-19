@@ -68,19 +68,134 @@ function processCommand () {
             break;
         case CMD_TEST:
 
-            console.log('TEST');
-
             printTestUsage();
 
             break;
         case CMD_DEPLOY:
 
-            console.log('DEPLOY');
+            GdwAwsLambda.deploy()
+                .then(onDeployResult, onDeployError);
 
             break;
         default:
 
             printUsage();
+    }
+}
+
+function onDeployError (error) {
+
+    switch (error) {
+        case GdwAwsLambda.ERR_LAMBDA_NOT_FOUND:
+
+            askConfirmation(
+                'Create AWS Lambda function (' +
+                GdwAwsLambda.lambdaCfg.FunctionName + ')?',
+                true,
+                onConfirmation
+            );
+
+            break;
+        case GdwAwsLambda.ERR_LAMBDA_CONFIG:
+
+            askConfirmation(
+                'Update AWS Lambda function  (' +
+                GdwAwsLambda.lambdaCfg.FunctionName + ') configuration?',
+                true,
+                onConfirmation
+            );
+
+            break;
+        default:
+            console.error('Deploy ERROR', error);
+    }
+
+    function onConfirmation (answer) {
+
+        if (answer) {
+
+            switch (error) {
+                case GdwAwsLambda.ERR_LAMBDA_NOT_FOUND:
+
+                    GdwAwsLambda.deploy({ create: true })
+                        .then(onDeployResult, onErrorDeploy);
+
+                    break;
+                case GdwAwsLambda.ERR_LAMBDA_CONFIG:
+
+                    GdwAwsLambda.deploy({ updateConfig: true })
+                        .then(onDeployResult, onErrorDeploy);
+            }
+
+        }
+    }
+
+}
+
+function onDeployResult (result) {
+    console.info('Deploy result', result);
+}
+
+function onErrorDeploy (error) {
+    console.info('Deploy error', error);
+}
+
+/**
+ * Ask a yes/no question
+ *
+ * @param {string} question
+ * @param {boolean} defaultAnswer
+ * @param {onResponse} callback
+ */
+function askConfirmation (question, defaultAnswer, callback) {
+
+    let options, completeQuestion;
+
+    options = '';
+
+    if (defaultAnswer === true) options += ' [Y/n] ';
+    if (defaultAnswer === false) options += ' [y/N] ';
+
+    completeQuestion = question + options;
+
+    const rl = readline.createInterface({
+        'input': process.stdin,
+        'output': process.stdout
+    });
+
+    rl.question(completeQuestion, onResponse);
+
+    /**
+     * @param {string} answer
+     */
+    function onResponse (answer) {
+
+        let cbAnswer;
+
+        if (answer.length === 0) {
+
+            cbAnswer = defaultAnswer;
+
+        } else if (answer.charAt(0) === 'y' || answer.charAt(0) === 'Y') {
+
+            cbAnswer = true;
+
+        } else if (answer.charAt(0) === 'n' || answer.charAt(0) === 'N') {
+
+            cbAnswer = false;
+
+        }
+
+        if (cbAnswer === true || cbAnswer === false) {
+
+            rl.close();
+            callback(cbAnswer);
+
+        } else {
+
+            rl.question(completeQuestion, onResponse);
+
+        }
     }
 }
 
