@@ -1,6 +1,7 @@
 
 import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
 
 import {SharedIniFileCredentials} from 'aws-sdk';
 import {
@@ -86,6 +87,25 @@ function isLambdaTest (obj: any): obj is LambdaTest {
     );
 }
 
+function isLambdaTests (obj: any): obj is LambdaTest[] {
+
+    if (Array.isArray(obj)) {
+
+        let i, length;
+
+        length = obj.length;
+        for (i = 0; i < length; i++) {
+
+            if (!isLambdaTest(obj[i])) return false;
+        }
+
+        return true;
+
+    }
+
+    return false;
+}
+
 /**
  * Checks whether a given variable is null, undefined, an empty object
  * or an empty Array
@@ -133,6 +153,7 @@ class GdwAwsLambda {
     private lambda: Lambda;
     private lambdaCfg: LambdaConfig;
     private lambdaSecrets: LambdaSecrets;
+    private lambdaTests: LambdaTest[];
 
     private lambdaGetInfo: GetFunctionResponse;
 
@@ -214,6 +235,62 @@ class GdwAwsLambda {
                 }
 
             });
+
+    }
+
+    public test (testFileName?: string) {
+
+        let testFile = GdwAwsLambda.FILE_LAMBDA_TESTS;
+
+        if (testFileName && isNEString(testFileName)) {
+            testFile = testFileName;
+        }
+
+        return Promise.all([
+            this.readObject(
+                GdwAwsLambda.FILE_LAMBDA_CONFIG,
+                GdwAwsLambda.FILE_LAMBDA_CONFIG
+            ).then((cfg) => {
+
+                if (isLambadConfig(cfg) &&
+                    isNEString(cfg.FunctionName) &&
+                    isNEString(cfg.Handler)) {
+
+                    this.lambdaCfg = cfg;
+
+                    return this.lambdaCfg;
+
+                } else {
+
+                    // return Promise.reject('Invalid Lambda config');
+                    throw 'Invalid Lambda config';
+
+                }
+
+            }),
+            this.readObject(
+                testFile,
+                GdwAwsLambda.FILE_LAMBDA_TESTS
+            ).then((obj) => {
+
+                if (isLambdaTests(obj)) {
+
+                    this.lambdaTests = obj;
+
+                    return this.lambdaTests;
+
+                } else {
+
+                    // return Promise.reject('Invalid Lambda tests');
+                    throw 'Invalid Lambda tests';
+                }
+
+            })
+        ]).then(() => {
+
+            return this.runTests();
+
+        });
 
     }
 
@@ -323,26 +400,31 @@ class GdwAwsLambda {
 
     }
 
-    private static compareEnvironment (env1: EnvironmentResponse | null | undefined,
-                                       env2: EnvironmentResponse | null | undefined):
-    boolean {
+    private static compareEnvironment (
+        env1: EnvironmentResponse | null | undefined,
+        env2: EnvironmentResponse | null | undefined
+    ): boolean {
 
-        if ((isEmpty(env1) || isObject(env1) && env1 && isEmpty(env1.Variables)) &&
-            (isEmpty(env2) || isObject(env2) && env2 && isEmpty(env2.Variables))) {
+        if ((isEmpty(env1) || isObject(env1) && env1 &&
+            isEmpty(env1.Variables)) &&
+            (isEmpty(env2) || isObject(env2) && env2 &&
+            isEmpty(env2.Variables))) {
 
             return true;
 
         } else if (isObject(env2) && env2 &&
             isObject(env2.Variables) &&
             Object.keys(env2.Variables).length > 0 &&
-            (isEmpty(env1) || isObject(env1) && env1 && isEmpty(env1.Variables))) {
+            (isEmpty(env1) || isObject(env1) && env1 &&
+            isEmpty(env1.Variables))) {
 
             return false;
 
         } else if (isObject(env1) && env1 &&
             isObject(env1.Variables) &&
             Object.keys(env1.Variables).length > 0 &&
-            (isEmpty(env2) || isObject(env2) && env2 && isEmpty(env2.Variables))) {
+            (isEmpty(env2) || isObject(env2) && env2 &&
+            isEmpty(env2.Variables))) {
 
             return false;
 
@@ -610,6 +692,82 @@ class GdwAwsLambda {
 
             return Promise.reject(`Unable to create object for ${file}`);
         }
+
+    }
+
+    private runTests () {
+
+        let splits;
+        let module;
+        let eventHandler;
+        let filePath;
+
+        // Extract module and handler name
+        splits = this.lambdaCfg.Handler.split('.');
+
+        if (splits.length !== 2) throw 'Invalid handler';
+
+        module = splits[0];
+        eventHandler = splits[1];
+
+        filePath = path.join(process.cwd(), module + '.js');
+
+        const handler = require(filePath)[eventHandler];
+
+        if (!handler) throw 'invalid handler object';
+
+        let promises = [];
+
+        let i, length;
+
+        length = this.lambdaTests.length;
+        for (i = 0; i < length; i++) {
+
+            promises.push(GdwAwsLambda.executeContextTest(
+                handler,
+                this.lambdaTests[i]
+            ));
+        }
+
+        return Promise.all(promises);
+
+    }
+
+    private static executeContextTest (handler: Function,
+                                       test: LambdaTest) {
+
+        let promises = [];
+
+        let i, length;
+
+        length = test.events.length;
+        for (i = 0; i < length; i++) {
+
+            promises.push(GdwAwsLambda.executeEventTest(
+                handler,
+                test.context,
+                test.events[i]
+            ));
+        }
+
+        return Promise.all(promises);
+
+    }
+
+    private static executeEventTest (handler: Function,
+                                     context: object | null | undefined,
+                                     event: object | null | undefined) {
+
+        return new Promise((resolve, reject) => {
+
+            handler(event, context, (err: any, data: any) => {
+
+                err ? reject(err)
+                    : resolve(data);
+
+            });
+
+        });
 
     }
 

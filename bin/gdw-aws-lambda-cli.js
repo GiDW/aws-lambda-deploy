@@ -6,9 +6,6 @@ const readline = require('readline');
 
 const GdwAwsLambda = require('../lib/gdw-aws-lambda');
 
-console.log('GdwAwsLambda', GdwAwsLambda, typeof GdwAwsLambda, Object.keys(GdwAwsLambda));
-// const lambda = new GdwAwsLambda();
-
 const CMD_INIT = 'init';
 const CMD_TEST = 'test';
 const CMD_DEPLOY = 'deploy';
@@ -68,7 +65,23 @@ function processCommand () {
             break;
         case CMD_TEST:
 
-            printTestUsage();
+            switch (remainingArguments.length) {
+                case 0:
+
+                    GdwAwsLambda.test()
+                        .then(onTestResult, onTestError);
+
+                    break;
+                case 1:
+
+                    GdwAwsLambda.test(remainingArguments[0])
+                        .then(onTestResult, onTestError);
+
+                    break;
+                default:
+
+                    printTestUsage();
+            }
 
             break;
         case CMD_DEPLOY:
@@ -138,6 +151,14 @@ function onDeployResult (result) {
 
 function onErrorDeploy (error) {
     console.info('Deploy error', error);
+}
+
+function onTestResult (result) {
+    console.info('Test result', result);
+}
+
+function onTestError (error) {
+    console.info('Test error', error);
 }
 
 /**
