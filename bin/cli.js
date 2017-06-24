@@ -10,6 +10,9 @@ const CMD_INIT = 'init';
 const CMD_TEST = 'test';
 const CMD_DEPLOY = 'deploy';
 
+let verbose;
+let force;
+
 processCommand();
 
 function processCommand () {
@@ -17,9 +20,6 @@ function processCommand () {
     let remainingArguments = [];
     let args = process.argv;
     let length = args.length;
-
-    let verbose;
-    let force;
 
     if (length > 3) {
 
@@ -53,12 +53,18 @@ function processCommand () {
                 .then(
                     (result) => {
 
-                        console.log('Init result', result);
+                        printMessage(
+                            'Lambda configuration initialised',
+                            result
+                        );
 
                     },
                     (error) => {
 
-                        console.log('Init error', error);
+                        printMessage(
+                            'Lambda configuration failed to initialise',
+                            error
+                        );
 
                     });
 
@@ -120,7 +126,11 @@ function onDeployError (error) {
 
             break;
         default:
-            console.error('Deploy ERROR', error);
+
+            printMessage(
+                'Failed to deploy Lambda',
+                error
+            );
     }
 
     function onConfirmation (answer) {
@@ -146,19 +156,35 @@ function onDeployError (error) {
 }
 
 function onDeployResult (result) {
-    console.info('Deploy result', result);
+
+    printMessage(
+        'Lambda deployed',
+        result
+    );
 }
 
 function onErrorDeploy (error) {
-    console.info('Deploy error', error);
+
+    printMessage(
+        'Failed to deploy Lambda',
+        error
+    );
 }
 
 function onTestResult (result) {
-    console.info('Test result', result);
+
+    printMessage(
+        'Tests completed',
+        result
+    );
 }
 
 function onTestError (error) {
-    console.info('Test error', error);
+
+    printMessage(
+        'Tests failed to complete',
+        error
+    );
 }
 
 /**
@@ -218,6 +244,12 @@ function askConfirmation (question, defaultAnswer, callback) {
 
         }
     }
+}
+
+function printMessage (msg, data) {
+
+    verbose ? console.log(msg, data)
+        : console.log(msg);
 }
 
 function printUsage () {
