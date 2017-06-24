@@ -228,7 +228,8 @@ function printUsage () {
         '    test\t\tRun test\n' +
         '    deploy\t\tDeploy the Lambda to AWS\n' +
         '\n  Options:\n\n' +
-        '    -v  \t\tVerbose' +
+        '    -v, --verbose\tVerbose\n' +
+        '    -f, --force  \tForce, yes to all confirmations' +
         '\n'
     );
 }

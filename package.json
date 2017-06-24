@@ -14,11 +14,11 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "2.72.0"
+    "aws-sdk": "2.77.0"
   },
   "devDependencies": {
-    "typescript": "2.3.4",
-    "@types/node": "7.0.31"
+    "@types/node": "8.0.2",
+    "typescript": "2.3.4"
   },
   "repository": {
     "type": "git",
