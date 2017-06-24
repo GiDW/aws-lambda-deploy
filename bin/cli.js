@@ -4,7 +4,7 @@
 
 const readline = require('readline');
 
-const GdwAwsLambda = require('../lib/gdw-aws-lambda');
+const GdwAwsLambda = require('../lib/main');
 
 const CMD_INIT = 'init';
 const CMD_TEST = 'test';

@@ -6,7 +6,7 @@
     "module": "none",
     "moduleResolution": "Node",
     "target": "es6",
-    "sourceMap": true,
+    "sourceMap": false,
     "lib": [
       "ES6"
     ]

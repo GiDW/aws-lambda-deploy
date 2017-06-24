@@ -6,7 +6,8 @@ import * as path from 'path';
 import {SharedIniFileCredentials} from 'aws-sdk';
 import {
     ClientConfiguration,
-    CreateFunctionRequest, EnvironmentResponse,
+    CreateFunctionRequest,
+    EnvironmentResponse,
     FunctionConfiguration,
     GetFunctionResponse,
     UpdateFunctionCodeRequest
