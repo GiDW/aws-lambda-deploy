@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Helper module for deploying AWS Lambda functions in Node.js.",
   "author": "Gilles De Waele",
+  "license": "MIT",
   "keywords": [
     "aws",
     "aws-lambda",
