@@ -145,6 +145,8 @@ lambda-aws-config.json
 # Include lib
 !lib
 
+*.map
+
 .editorconfig
 .idea
 .nvmrc
