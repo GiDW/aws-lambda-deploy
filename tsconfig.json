@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "outDir": "lib",
+    "rootDir": "src",
+    "strict": true,
+    "module": "none",
+    "moduleResolution": "Node",
+    "target": "es6",
+    "sourceMap": false,
+    "lib": [
+      "ES6"
+    ]
+  },
+  "file": [
+    "src/main.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
