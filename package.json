@@ -1,12 +1,12 @@
 {
-  "name": "aws-node-lambda-helper",
+  "name": "@gidw/aws-lambda-deploy",
   "version": "1.0.0",
   "description": "Helper module for deploying AWS Lambda functions in Node.js.",
   "author": "Gilles De Waele",
   "license": "MIT",
   "main": "lib/main.js",
   "bin": {
-    "node-lambda": "./bin/cli.js"
+    "gald": "./bin/cli.js"
   },
   "keywords": [
     "aws",
