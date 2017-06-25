@@ -137,3 +137,20 @@ lib
 *.zip
 lambda-config.json
 lambda-aws-config.json
+
+
+### end .gitignore
+
+
+# Include lib
+!lib
+
+*.map
+
+.editorconfig
+.idea
+.nvmrc
+src
+test
+node-lambda.js
+tsconfig.json
