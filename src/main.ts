@@ -51,7 +51,7 @@ interface DeployOptions {
     readonly updateConfig?: boolean
 }
 
-function isLambadConfig (obj: any): obj is LambdaConfig {
+function isLambdaConfig (obj: any): obj is LambdaConfig {
     return (
         typeof obj === 'object' &&
         obj !== null &&
@@ -253,7 +253,7 @@ class GdwAwsLambda {
                 GdwAwsLambda.FILE_LAMBDA_CONFIG
             ).then((cfg) => {
 
-                if (isLambadConfig(cfg) &&
+                if (isLambdaConfig(cfg) &&
                     isNEString(cfg.FunctionName) &&
                     isNEString(cfg.Handler)) {
 
@@ -629,7 +629,7 @@ class GdwAwsLambda {
                 GdwAwsLambda.FILE_LAMBDA_CONFIG
             ).then((cfg) => {
 
-                if (isLambadConfig(cfg) &&
+                if (isLambdaConfig(cfg) &&
                     isNEString(cfg.FunctionName) &&
                     isNEString(cfg.Handler)) {
 
@@ -848,7 +848,7 @@ class GdwAwsLambda {
         switch (checkType) {
             case GdwAwsLambda.FILE_LAMBDA_CONFIG:
 
-                if (isLambadConfig(object)) {
+                if (isLambdaConfig(object)) {
 
                     return '';
 

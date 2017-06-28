@@ -120,7 +120,7 @@ function onDeployError (error) {
         case GdwAwsLambda.ERR_LAMBDA_CONFIG:
 
             askConfirmation(
-                'Update AWS Lambda function  (' +
+                'Update AWS Lambda function (' +
                 lambda.lambdaCfg.FunctionName + ') configuration?',
                 true,
                 onConfirmation
