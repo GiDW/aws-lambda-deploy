@@ -6,6 +6,8 @@ const readline = require('readline');
 
 const GdwAwsLambda = require('../lib/main');
 
+const lambda = new GdwAwsLambda();
+
 const CMD_INIT = 'init';
 const CMD_TEST = 'test';
 const CMD_DEPLOY = 'deploy';
@@ -49,7 +51,7 @@ function processCommand () {
     switch (args[2]) {
         case CMD_INIT:
 
-            GdwAwsLambda.init()
+            lambda.init()
                 .then(
                     (result) => {
 
@@ -74,13 +76,13 @@ function processCommand () {
             switch (remainingArguments.length) {
                 case 0:
 
-                    GdwAwsLambda.test()
+                    lambda.test()
                         .then(onTestResult, onTestError);
 
                     break;
                 case 1:
 
-                    GdwAwsLambda.test(remainingArguments[0])
+                    lambda.test(remainingArguments[0])
                         .then(onTestResult, onTestError);
 
                     break;
@@ -92,7 +94,7 @@ function processCommand () {
             break;
         case CMD_DEPLOY:
 
-            GdwAwsLambda.deploy()
+            lambda.deploy()
                 .then(onDeployResult, onDeployError);
 
             break;
@@ -109,7 +111,7 @@ function onDeployError (error) {
 
             askConfirmation(
                 'Create AWS Lambda function (' +
-                GdwAwsLambda.lambdaCfg.FunctionName + ')?',
+                lambda.lambdaCfg.FunctionName + ')?',
                 true,
                 onConfirmation
             );
@@ -119,7 +121,7 @@ function onDeployError (error) {
 
             askConfirmation(
                 'Update AWS Lambda function  (' +
-                GdwAwsLambda.lambdaCfg.FunctionName + ') configuration?',
+                lambda.lambdaCfg.FunctionName + ') configuration?',
                 true,
                 onConfirmation
             );
@@ -140,13 +142,13 @@ function onDeployError (error) {
             switch (error) {
                 case GdwAwsLambda.ERR_LAMBDA_NOT_FOUND:
 
-                    GdwAwsLambda.deploy({ create: true })
+                    lambda.deploy({ create: true })
                         .then(onDeployResult, onErrorDeploy);
 
                     break;
                 case GdwAwsLambda.ERR_LAMBDA_CONFIG:
 
-                    GdwAwsLambda.deploy({ updateConfig: true })
+                    lambda.deploy({ updateConfig: true })
                         .then(onDeployResult, onErrorDeploy);
             }
 

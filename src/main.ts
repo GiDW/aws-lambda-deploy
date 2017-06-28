@@ -944,4 +944,4 @@ class GdwAwsLambda {
     }
 }
 
-module.exports = new GdwAwsLambda();
+module.exports = GdwAwsLambda;
