@@ -1,6 +1,6 @@
 {
   "name": "@gidw/aws-lambda-deploy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Helper module for deploying AWS Lambda functions in Node.js.",
   "author": "Gilles De Waele",
   "license": "MIT",
