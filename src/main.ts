@@ -145,6 +145,7 @@ function isNEString (value: any | null | undefined): boolean {
 function isObject (obj: any | null | undefined): boolean {
     return (
         typeof obj === 'object' &&
+        obj !== undefined &&
         obj !== null
     );
 }
@@ -376,29 +377,34 @@ class GdwAwsLambda {
         });
     }
 
-    private checkLambdaConfig (config: Lambda.FunctionConfiguration): boolean {
+    private checkLambdaConfig (config: GetFunctionResponse): boolean {
 
         let isEqual = (
             config &&
-            config.FunctionName === this.lambdaCfg.FunctionName &&
-            config.Description === this.lambdaCfg.Description &&
-            config.Handler === this.lambdaCfg.Handler &&
-            config.Runtime === this.lambdaCfg.Runtime &&
-            config.MemorySize === this.lambdaCfg.MemorySize &&
-            config.Timeout === this.lambdaCfg.Timeout &&
-            config.Role === this.lambdaSecrets.Role
+            config.Configuration &&
+            config.Configuration &&
+            config.Configuration.FunctionName === this.lambdaCfg.FunctionName &&
+            config.Configuration.Description === this.lambdaCfg.Description &&
+            config.Configuration.Handler === this.lambdaCfg.Handler &&
+            config.Configuration.Runtime === this.lambdaCfg.Runtime &&
+            config.Configuration.MemorySize === this.lambdaCfg.MemorySize &&
+            config.Configuration.Timeout === this.lambdaCfg.Timeout &&
+            config.Configuration.Role === this.lambdaSecrets.Role
         );
 
-        if (isEqual) {
+        if (config && config.Configuration && isEqual) {
 
             isEqual = GdwAwsLambda.compareEnvironment(
-                config.Environment,
+                config.Configuration.Environment,
                 this.lambdaSecrets.Environment
             );
         }
 
-        return isEqual;
-
+        if (typeof isEqual === 'boolean') {
+            return isEqual;
+        } else {
+            return false;
+        }
     }
 
     private static compareEnvironment (
