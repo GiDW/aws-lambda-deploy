@@ -175,10 +175,7 @@ function onErrorDeploy (error) {
 
 function onTestResult (result) {
 
-    printMessage(
-        'Tests completed',
-        result
-    );
+    console.log('Tests completed', result);
 }
 
 function onTestError (error) {

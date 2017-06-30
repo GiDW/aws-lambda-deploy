@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.3] - 2017-06-30
+
+- Fixed invalid zip file buffer
+- Show test results by default
+
 ## [1.0.2] - 2017-06-29
 
 - Fixed configuration change detected when there were no changes
