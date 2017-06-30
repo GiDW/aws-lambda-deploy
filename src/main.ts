@@ -157,6 +157,8 @@ class GdwAwsLambda {
     private lambdaSecrets: LambdaSecrets;
     private lambdaTests: LambdaTest[];
 
+    private lambdaBuffer: Buffer;
+
     private lambdaGetInfo: GetFunctionResponse;
 
     public static readonly FILE_LAMBDA_CONFIG = 'lambda-config.json';
@@ -512,12 +514,12 @@ class GdwAwsLambda {
     private updateFunctionCode () {
 
         return this.readArchive()
-            .then((result) => {
+            .then(() => {
 
                 return this.updateCode({
                     FunctionName: this.lambdaCfg.FunctionName,
                     Publish: this.lambdaCfg.Publish,
-                    ZipFile: result,
+                    ZipFile: this.lambdaBuffer,
                     DryRun: true
                 });
 
@@ -532,7 +534,7 @@ class GdwAwsLambda {
                         return this.updateCode({
                             FunctionName: this.lambdaCfg.FunctionName,
                             Publish: this.lambdaCfg.Publish,
-                            ZipFile: result,
+                            ZipFile: this.lambdaBuffer,
                             DryRun: false
                         });
 
@@ -610,9 +612,17 @@ class GdwAwsLambda {
                     this.lambdaCfg.archiveName,
                     (err, data) => {
 
-                        err ? reject('Archive ' + this.lambdaCfg.archiveName +
-                            'not found')
-                            : resolve(data);
+                        if (err) {
+
+                            reject('Archive ' + this.lambdaCfg.archiveName +
+                                'not found');
+
+                        } else {
+
+                            this.lambdaBuffer = data;
+                            resolve(this.lambdaBuffer);
+
+                        }
 
                     }
                 );
