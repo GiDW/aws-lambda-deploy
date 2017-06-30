@@ -19,11 +19,11 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "2.78.0"
+    "aws-sdk": "^2.79.0"
   },
   "devDependencies": {
-    "@types/node": "8.0.2",
-    "typescript": "2.3.4"
+    "@types/node": "~8.0.6",
+    "typescript": "~2.4.1"
   },
   "repository": {
     "type": "git",
@@ -36,6 +36,7 @@
   "scripts": {
     "build-debug": "tsc --sourceMap true",
     "build": "tsc",
+    "publish": "tsc && npm publish",
     "clean": "rm -rf lib/*"
   }
 }
