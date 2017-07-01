@@ -12,9 +12,14 @@
     ]
   },
   "file": [
-    "src/main.ts"
+    "src/main.ts",
+    "src/util.ts",
+    "src/types.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "bin",
+    "lib",
+    "test"
   ]
 }
