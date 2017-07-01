@@ -885,10 +885,10 @@ class GdwAwsLambda {
             case GdwAwsLambda.FILE_LAMBDA_CONFIG:
 
                 return {
-                    archiveName: '',
+                    archiveName: 'archive.zip',
                     FunctionName: '',
                     Description: '',
-                    Handler: '',
+                    Handler: 'index.handler',
                     Publish: false,
                     Runtime: 'nodejs6.10',
                     MemorySize: 128,
