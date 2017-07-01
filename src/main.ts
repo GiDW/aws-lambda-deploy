@@ -546,6 +546,92 @@ class GdwAwsLambda {
 
     //endregion
 
+    //region Lambda tests
+
+    private runTests () {
+
+        let splits;
+        let module;
+        let eventHandler;
+        let filePath;
+
+        // Extract module and handler name
+        splits = this.lambdaCfg.Handler.split('.');
+
+        if (splits.length !== 2) throw 'Invalid handler';
+
+        module = splits[0];
+        eventHandler = splits[1];
+
+        filePath = path.join(process.cwd(), module + '.js');
+
+        const handler = require(filePath)[eventHandler];
+
+        if (!handler) throw 'invalid handler object';
+
+        let promises = [];
+
+        let i, length;
+
+        length = this.lambdaTests.length;
+        for (i = 0; i < length; i++) {
+
+            promises.push(GdwAwsLambda.executeContextTest(
+                handler,
+                this.lambdaTests[i]
+            ));
+        }
+
+        return Promise.all(promises);
+
+    }
+
+    private static executeContextTest (
+        handler: Function,
+        test: LambdaTest
+    ) {
+
+        let promises = [];
+
+        let i, length;
+
+        length = test.events.length;
+        for (i = 0; i < length; i++) {
+
+            promises.push(GdwAwsLambda.executeEventTest(
+                handler,
+                test.context,
+                test.events[i]
+            ));
+        }
+
+        return Promise.all(promises);
+
+    }
+
+    private static executeEventTest (
+        handler: Function,
+        context: object | null | undefined,
+        event: object | null | undefined
+    ) {
+
+        return new Promise((resolve, reject) => {
+
+            handler(event, context, (err: any, data: any) => {
+
+                err ? reject(err)
+                    : resolve(data);
+
+            });
+
+        });
+
+    }
+
+    //endregion
+
+    //region File methods
+
     private readArchive () {
 
         return new Promise((resolve, reject) => {
@@ -664,86 +750,6 @@ class GdwAwsLambda {
 
     }
 
-    private runTests () {
-
-        let splits;
-        let module;
-        let eventHandler;
-        let filePath;
-
-        // Extract module and handler name
-        splits = this.lambdaCfg.Handler.split('.');
-
-        if (splits.length !== 2) throw 'Invalid handler';
-
-        module = splits[0];
-        eventHandler = splits[1];
-
-        filePath = path.join(process.cwd(), module + '.js');
-
-        const handler = require(filePath)[eventHandler];
-
-        if (!handler) throw 'invalid handler object';
-
-        let promises = [];
-
-        let i, length;
-
-        length = this.lambdaTests.length;
-        for (i = 0; i < length; i++) {
-
-            promises.push(GdwAwsLambda.executeContextTest(
-                handler,
-                this.lambdaTests[i]
-            ));
-        }
-
-        return Promise.all(promises);
-
-    }
-
-    private static executeContextTest (
-        handler: Function,
-        test: LambdaTest
-    ) {
-
-        let promises = [];
-
-        let i, length;
-
-        length = test.events.length;
-        for (i = 0; i < length; i++) {
-
-            promises.push(GdwAwsLambda.executeEventTest(
-                handler,
-                test.context,
-                test.events[i]
-            ));
-        }
-
-        return Promise.all(promises);
-
-    }
-
-    private static executeEventTest (
-        handler: Function,
-        context: object | null | undefined,
-        event: object | null | undefined
-    ) {
-
-        return new Promise((resolve, reject) => {
-
-            handler(event, context, (err: any, data: any) => {
-
-                err ? reject(err)
-                    : resolve(data);
-
-            });
-
-        });
-
-    }
-
     private readObject (file: string, checkType?: string): Promise<object> {
 
         return new Promise((resolve, reject) => {
@@ -810,6 +816,10 @@ class GdwAwsLambda {
 
         });
     }
+
+    //endregion
+
+    //region Static methods
 
     private static checkObject (
         object: LambdaConfig | LambdaSecrets | Array<LambdaTest>,
@@ -912,6 +922,8 @@ class GdwAwsLambda {
         }
 
     }
+
+    //endregion
 }
 
 module.exports = GdwAwsLambda;
