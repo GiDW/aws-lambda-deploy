@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.4] - 2017-07-01
+
+#### Changes
+
+- Bug fixes
+- Split library code in modules
+- Support TypeScript 2.4
+- Added default value for `archiveName`
+- Added default value for `Handler`
+
+#### Build
+
+- Added test environment
+- Added clean install script
+
 ## [1.0.3] - 2017-06-30
 
 - Fixed invalid zip file buffer
