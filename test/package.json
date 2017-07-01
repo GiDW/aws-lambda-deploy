@@ -1,0 +1,23 @@
+{
+  "name": "gald-test",
+  "version": "0.0.1",
+  "description": "gald-test",
+  "author": "Gilles De Waele",
+  "license": "MIT",
+  "dependencies": {
+    "@gidw/aws-lambda-deploy": "file:gidw-aws-lambda-deploy-1.0.2.tgz"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:gald-test.git"
+  },
+  "scripts": {
+    "test-install": "npm install *.tgz",
+    "test-reset": "make clean && rm -rf lambda-*.json && rm -rf package-lock.json && rm -rf node_modules",
+    "init": "gald init",
+    "test": "gald test",
+    "deploy": "gald deploy",
+    "build": "make"
+  }
+}

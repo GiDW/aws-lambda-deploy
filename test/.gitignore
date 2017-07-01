@@ -244,10 +244,13 @@ $RECYCLE.BIN/
 
 ## Project
 
-lib
+.idea
 
+
+
+package-lock.json
+
+index.js
 *.zip
 *.tgz
 lambda-config.json
-lambda-secrets.json
-lambda-tests.json

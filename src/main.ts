@@ -1,8 +1,10 @@
 
+// Node JS dependencies
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
+// AWS SDK dependencies
 import {SharedIniFileCredentials} from 'aws-sdk';
 import {
     ClientConfiguration,
@@ -10,145 +12,20 @@ import {
     EnvironmentResponse,
     FunctionConfiguration,
     GetFunctionResponse,
-    UpdateFunctionCodeRequest
+    UpdateFunctionCodeRequest,
+    UpdateFunctionConfigurationRequest
 } from 'aws-sdk/clients/lambda';
 import Lambda = require('aws-sdk/clients/lambda');
 
-type LambdaRuntime = 'nodejs6.10' | 'nodejs4.3';
-
-interface LambdaConfig {
-    readonly archiveName: string,
-    readonly FunctionName: string,
-    readonly Description: string,
-    readonly Handler: string,
-    readonly Publish: boolean,
-    readonly Runtime: LambdaRuntime,
-    readonly MemorySize: number,
-    readonly Timeout: number
-}
-
-interface LambdaSecrets {
-    readonly region: string,
-    readonly profile: string,
-    readonly accessKeyId: string,
-    readonly secretAccessKey: string,
-    readonly Role: string,
-    readonly Environment: {
-        readonly Variables: {
-            readonly [property: string]: string
-        }
-    }
-}
-
-interface LambdaTest {
-    readonly name?: string,
-    readonly context: object,
-    readonly events: Array<object>
-}
-
-interface DeployOptions {
-    readonly create?: boolean,
-    readonly updateConfig?: boolean
-}
-
-function isLambdaConfig (obj: any): obj is LambdaConfig {
-    return (
-        typeof obj === 'object' &&
-        obj !== null &&
-        obj.hasOwnProperty('archiveName') &&
-        obj.hasOwnProperty('FunctionName') &&
-        obj.hasOwnProperty('Description') &&
-        obj.hasOwnProperty('Handler') &&
-        obj.hasOwnProperty('Publish') &&
-        obj.hasOwnProperty('Runtime') &&
-        obj.hasOwnProperty('MemorySize') &&
-        obj.hasOwnProperty('Timeout')
-    );
-}
-
-function isLambdaSecrets (obj: any): obj is LambdaSecrets {
-    return (
-        typeof obj === 'object' &&
-        obj !== null &&
-        obj.hasOwnProperty('region') &&
-        obj.hasOwnProperty('profile') &&
-        obj.hasOwnProperty('accessKeyId') &&
-        obj.hasOwnProperty('secretAccessKey') &&
-        obj.hasOwnProperty('Role') &&
-        obj.hasOwnProperty('Environment')
-    );
-}
-
-function isLambdaTest (obj: any): obj is LambdaTest {
-    return (
-        typeof obj === 'object' &&
-        obj !== null &&
-        obj.hasOwnProperty('context') &&
-        obj.hasOwnProperty('events')
-    );
-}
-
-function isLambdaTests (obj: any): obj is LambdaTest[] {
-
-    if (Array.isArray(obj)) {
-
-        let i, length;
-
-        length = obj.length;
-        for (i = 0; i < length; i++) {
-
-            if (!isLambdaTest(obj[i])) return false;
-        }
-
-        return true;
-
-    }
-
-    return false;
-}
-
-/**
- * Checks whether a given variable is null, undefined, an empty object
- * or an empty Array
- *
- * @param {*} obj
- * @returns {boolean}
- */
-function isEmpty (obj: any | null | undefined): boolean {
-    return (
-        obj === undefined ||
-        obj === null ||
-        (isObject(obj) && Object.keys(obj).length === 0) ||
-        (Array.isArray(obj) && obj.length === 0)
-    );
-}
-
-/**
- * Checks for non-empty string
- *
- * @param {string} value
- * @returns {boolean}
- */
-function isNEString (value: any | null | undefined): boolean {
-    return (
-        typeof value === 'string' &&
-        value.length > 0
-    );
-}
-
-/**
- * Checks for non-null object
- *
- * @param {Object} obj
- * @returns {boolean}
- */
-function isObject (obj: any | null | undefined): boolean {
-    return (
-        typeof obj === 'object' &&
-        obj !== undefined &&
-        obj !== null
-    );
-}
+// Local dependencies
+import Util from './Util';
+import {
+    DeployOptions,
+    LambdaConfig,
+    LambdaSecrets,
+    LambdaTest
+} from './types';
+import GdwAwsLambdaType from './types';
 
 class GdwAwsLambda {
 
@@ -174,6 +51,8 @@ class GdwAwsLambda {
     public static readonly ERR_LAMBDA_CONFIG = 'Lambda config different';
 
     private static readonly AWS_LAMBDA_VERSION = '2015-03-31';
+
+    //region Entry methods
 
     public init (): Promise<Array<string>> {
 
@@ -206,7 +85,7 @@ class GdwAwsLambda {
 
                 if (result === GdwAwsLambda.ERR_LAMBDA_NOT_FOUND) {
 
-                    return this.createFunction();
+                    return this.createLambdaFunction();
 
                 } else {
 
@@ -214,7 +93,7 @@ class GdwAwsLambda {
 
                     if (options && options.updateConfig) {
 
-                        promises.push(this.updateConfig());
+                        promises.push(this.updateLambdaConfig());
 
                     } else {
 
@@ -227,7 +106,7 @@ class GdwAwsLambda {
 
                     }
 
-                    promises.push(this.updateFunctionCode());
+                    promises.push(this.updateLambdaFunctionCode());
 
                     return Promise.all(promises)
                         .then(() => {
@@ -246,7 +125,7 @@ class GdwAwsLambda {
 
         let testFile = GdwAwsLambda.FILE_LAMBDA_TESTS;
 
-        if (testFileName && isNEString(testFileName)) {
+        if (Util.isNEString(testFileName)) {
             testFile = testFileName;
         }
 
@@ -256,9 +135,9 @@ class GdwAwsLambda {
                 GdwAwsLambda.FILE_LAMBDA_CONFIG
             ).then((cfg) => {
 
-                if (isLambdaConfig(cfg) &&
-                    isNEString(cfg.FunctionName) &&
-                    isNEString(cfg.Handler)) {
+                if (GdwAwsLambdaType.isLambdaConfig(cfg) &&
+                    Util.isNEString(cfg.FunctionName) &&
+                    Util.isNEString(cfg.Handler)) {
 
                     this.lambdaCfg = cfg;
 
@@ -277,7 +156,7 @@ class GdwAwsLambda {
                 GdwAwsLambda.FILE_LAMBDA_TESTS
             ).then((obj) => {
 
-                if (isLambdaTests(obj)) {
+                if (GdwAwsLambdaType.isLambdaTests(obj)) {
 
                     this.lambdaTests = obj;
 
@@ -298,6 +177,8 @@ class GdwAwsLambda {
 
     }
 
+    //endregion
+
     private createLambdaService (): Promise<Lambda> {
 
         return this.readConfig()
@@ -310,14 +191,14 @@ class GdwAwsLambda {
 
                 // Authentication
 
-                if (isNEString(this.lambdaSecrets.profile)) {
+                if (Util.isNEString(this.lambdaSecrets.profile)) {
 
                     lambdaOptions.credentials = new SharedIniFileCredentials({
                         profile: this.lambdaSecrets.profile
                     });
 
-                } else if (isNEString(this.lambdaSecrets.accessKeyId) &&
-                    isNEString(this.lambdaSecrets.secretAccessKey)) {
+                } else if (Util.isNEString(this.lambdaSecrets.accessKeyId) &&
+                    Util.isNEString(this.lambdaSecrets.secretAccessKey)) {
 
                     lambdaOptions.accessKeyId =
                         this.lambdaSecrets.accessKeyId;
@@ -334,8 +215,9 @@ class GdwAwsLambda {
 
     }
 
-    private checkLambda (options?: DeployOptions)
-    : Promise<string|GetFunctionResponse> {
+    private checkLambda (
+        options?: DeployOptions
+    ): Promise<string|GetFunctionResponse> {
 
         return new Promise((resolve, reject) => {
 
@@ -414,33 +296,31 @@ class GdwAwsLambda {
         env2: EnvironmentResponse | null | undefined
     ): boolean {
 
-        if ((isEmpty(env1) || isObject(env1) && env1 &&
-            isEmpty(env1.Variables)) &&
-            (isEmpty(env2) || isObject(env2) && env2 &&
-            isEmpty(env2.Variables))) {
+        if ((Util.isEmpty(env1) || Util.isObject(env1) &&
+            Util.isEmpty(env1.Variables)) &&
+            (Util.isEmpty(env2) || Util.isObject(env2) &&
+            Util.isEmpty(env2.Variables))) {
 
             return true;
 
-        } else if (isObject(env2) && env2 &&
-            isObject(env2.Variables) &&
+        } else if (Util.isObject(env2) &&
+            Util.isObject(env2.Variables) &&
             Object.keys(env2.Variables).length > 0 &&
-            (isEmpty(env1) || isObject(env1) && env1 &&
-            isEmpty(env1.Variables))) {
+            (Util.isEmpty(env1) || Util.isObject(env1) &&
+            Util.isEmpty(env1.Variables))) {
 
             return false;
 
-        } else if (isObject(env1) && env1 &&
-            isObject(env1.Variables) &&
+        } else if (Util.isObject(env1) &&
+            Util.isObject(env1.Variables) &&
             Object.keys(env1.Variables).length > 0 &&
-            (isEmpty(env2) || isObject(env2) && env2 &&
-            isEmpty(env2.Variables))) {
+            (Util.isEmpty(env2) || Util.isObject(env2) &&
+            Util.isEmpty(env2.Variables))) {
 
             return false;
 
-        } else if (isObject(env1) && env1 && isObject(env1.Variables) &&
-            env1.Variables &&
-            isObject(env2) && env2 && isObject(env2.Variables) &&
-            env2.Variables) {
+        } else if (Util.isObject(env1) && Util.isObject(env1.Variables) &&
+            Util.isObject(env2) && Util.isObject(env2.Variables)) {
 
             let k1 = Object.keys(env1.Variables);
             let k2 = Object.keys(env2.Variables);
@@ -473,7 +353,7 @@ class GdwAwsLambda {
 
     }
 
-    private createFunction () {
+    private createLambdaFunction () {
 
         return this.readArchive()
             .then((result) => {
@@ -492,31 +372,52 @@ class GdwAwsLambda {
                     }
                 };
 
-                this.lambda.createFunction(
-                    params,
-                    (err) => {
+                return this.createFunction(params)
+                    .then(
+                        () => {
 
-                        if (err) {
+                            return 'Lambda function (' +
+                                this.lambdaCfg.FunctionName + ') created';
 
-                            return Promise
-                                .reject('Error creating Lambda function');
                         }
-
-                        return 'Lambda function (' +
-                            this.lambdaCfg.FunctionName + ') created';
-
-                    });
+                    );
 
             });
 
     }
 
-    private updateFunctionCode () {
+    private updateLambdaConfig (): Promise<string> {
+
+        let params: UpdateFunctionConfigurationRequest = {
+            FunctionName: this.lambdaCfg.FunctionName,
+            Description: this.lambdaCfg.Description,
+            Handler: this.lambdaCfg.Handler,
+            Runtime: this.lambdaCfg.Runtime,
+            MemorySize: this.lambdaCfg.MemorySize,
+            Timeout: this.lambdaCfg.Timeout,
+            Role: this.lambdaSecrets.Role,
+            Environment: this.lambdaSecrets.Environment
+        };
+
+        return this.updateConfig(params)
+            .then(
+                () => {
+
+                    return 'Lambda function (' +
+                        this.lambdaCfg.FunctionName +
+                        ') configuration updated';
+
+                }
+            );
+
+    }
+
+    private updateLambdaFunctionCode (): Promise<string> {
 
         return this.readArchive()
             .then(() => {
 
-                return this.updateCode({
+                return this.updateFunctionCode({
                     FunctionName: this.lambdaCfg.FunctionName,
                     Publish: this.lambdaCfg.Publish,
                     ZipFile: this.lambdaBuffer,
@@ -531,12 +432,21 @@ class GdwAwsLambda {
                     if (result.CodeSha256 !==
                         this.lambdaGetInfo.Configuration.CodeSha256) {
 
-                        return this.updateCode({
+                        return this.updateFunctionCode({
                             FunctionName: this.lambdaCfg.FunctionName,
                             Publish: this.lambdaCfg.Publish,
                             ZipFile: this.lambdaBuffer,
                             DryRun: false
-                        });
+                        })
+                            .then(
+                                () => {
+
+                                    return 'Lambda function (' +
+                                        this.lambdaCfg.FunctionName +
+                                        ') code has been updated';
+
+                                }
+                            );
 
                     } else {
 
@@ -556,161 +466,87 @@ class GdwAwsLambda {
 
     }
 
-    private updateConfig () {
+    //region AWS Lambda Promise wrappers
+
+    private createFunction (
+        params: CreateFunctionRequest
+    ): Promise<FunctionConfiguration> {
 
         return new Promise((resolve, reject) => {
 
-            this.lambda.updateFunctionConfiguration({
-                FunctionName: this.lambdaCfg.FunctionName,
-                Description: this.lambdaCfg.Description,
-                Handler: this.lambdaCfg.Handler,
-                Runtime: this.lambdaCfg.Runtime,
-                MemorySize: this.lambdaCfg.MemorySize,
-                Timeout: this.lambdaCfg.Timeout,
-                Role: this.lambdaSecrets.Role,
-                Environment: this.lambdaSecrets.Environment
-            }, (err, data) => {
+            this.lambda.createFunction(
+                params,
+                (err, data) => {
 
-                err ? reject('Error updating function configuration')
-                    : resolve(data);
+                    err ? reject(err)
+                        : resolve(data);
 
-            })
+                }
+            );
 
         });
 
     }
 
-    private updateCode (config: UpdateFunctionCodeRequest) {
+    private updateConfig (
+        params: UpdateFunctionConfigurationRequest
+    ): Promise<FunctionConfiguration> {
 
         return new Promise((resolve, reject) => {
 
-            this.lambda.updateFunctionCode(config, (err, data) => {
+            // this.lambda.updateFunctionConfiguration({
+            //     FunctionName: this.lambdaCfg.FunctionName,
+            //     Description: this.lambdaCfg.Description,
+            //     Handler: this.lambdaCfg.Handler,
+            //     Runtime: this.lambdaCfg.Runtime,
+            //     MemorySize: this.lambdaCfg.MemorySize,
+            //     Timeout: this.lambdaCfg.Timeout,
+            //     Role: this.lambdaSecrets.Role,
+            //     Environment: this.lambdaSecrets.Environment
+            // }, (err, data) => {
+            //
+            //     err ? reject('Error updating function configuration')
+            //         : resolve(data);
+            //
+            // })
 
-                if (err) {
+            this.lambda.updateFunctionConfiguration(
+                params,
+                (err, data) => {
 
-                    reject(err);
-
-                } else {
-
-                    resolve(data);
+                    err ? reject(err)
+                        : resolve(data);
 
                 }
-
-            })
+            );
 
         });
 
     }
 
-    private readArchive () {
+    private updateFunctionCode (
+        params: UpdateFunctionCodeRequest
+    ): Promise<FunctionConfiguration> {
 
         return new Promise((resolve, reject) => {
 
-            if (isNEString(this.lambdaCfg.archiveName)) {
+            this.lambda.updateFunctionCode(
+                params,
+                (err, data) => {
 
-                fs.readFile(
-                    this.lambdaCfg.archiveName,
-                    (err, data) => {
+                    err ? reject(err)
+                        : resolve(data);
 
-                        if (err) {
-
-                            reject('Archive ' + this.lambdaCfg.archiveName +
-                                'not found');
-
-                        } else {
-
-                            this.lambdaBuffer = data;
-                            resolve(this.lambdaBuffer);
-
-                        }
-
-                    }
-                );
-
-            } else {
-
-                reject('Invalid archive name');
-
-            }
+                }
+            );
 
         });
 
     }
 
-    private readConfig () {
+    //endregion
 
-        return Promise.all([
-            this.readObject(
-                GdwAwsLambda.FILE_LAMBDA_CONFIG,
-                GdwAwsLambda.FILE_LAMBDA_CONFIG
-            ).then((cfg) => {
-
-                if (isLambdaConfig(cfg) &&
-                    isNEString(cfg.FunctionName) &&
-                    isNEString(cfg.Handler)) {
-
-                    this.lambdaCfg = cfg;
-
-                    return this.lambdaCfg;
-
-                } else {
-
-                    // return Promise.reject('Invalid Lambda config');
-                    throw 'Invalid Lambda config';
-
-                }
-
-            }),
-            this.readObject(
-                GdwAwsLambda.FILE_LAMBDA_SECRETS,
-                GdwAwsLambda.FILE_LAMBDA_SECRETS
-            ).then((cfg): LambdaSecrets => {
-
-                if (isLambdaSecrets(cfg) &&
-                    isNEString(cfg.region) &&
-                    isNEString(cfg.Role)) {
-
-                    this.lambdaSecrets = cfg;
-
-                    return this.lambdaSecrets;
-
-                } else {
-
-                    // return Promise.reject('Invalid Lambda secrets');
-                    throw 'Invalid Lambda secrets';
-
-                }
-
-            })
-        ]);
-
-    }
-
-    private checkAndInit (file: string, type: string): Promise<string> {
-
-        return this.readObject(file, type)
-            .catch(() => {
-
-                return this.initFile(file);
-
-            });
-    }
-
-    private initFile (file: string): Promise<string> {
-
-        let obj = GdwAwsLambda
-            .createObject(file);
-
-        if (obj) {
-
-            return this.writeObject(file, obj);
-
-        } else {
-
-            return Promise.reject(`Unable to create object for ${file}`);
-        }
-
-    }
+    //region Lambda tests
 
     private runTests () {
 
@@ -750,8 +586,10 @@ class GdwAwsLambda {
 
     }
 
-    private static executeContextTest (handler: Function,
-                                       test: LambdaTest) {
+    private static executeContextTest (
+        handler: Function,
+        test: LambdaTest
+    ) {
 
         let promises = [];
 
@@ -771,9 +609,11 @@ class GdwAwsLambda {
 
     }
 
-    private static executeEventTest (handler: Function,
-                                     context: object | null | undefined,
-                                     event: object | null | undefined) {
+    private static executeEventTest (
+        handler: Function,
+        context: object | null | undefined,
+        event: object | null | undefined
+    ) {
 
         return new Promise((resolve, reject) => {
 
@@ -788,8 +628,129 @@ class GdwAwsLambda {
 
     }
 
-    private readObject (file: string, checkType?: string)
-        : Promise<object> {
+    //endregion
+
+    //region File methods
+
+    private readArchive () {
+
+        return new Promise((resolve, reject) => {
+
+            if (Util.isNEString(this.lambdaCfg.archiveName)) {
+
+                fs.readFile(
+                    this.lambdaCfg.archiveName,
+                    (err, data) => {
+
+                        if (err) {
+
+                            reject('Archive ' + this.lambdaCfg.archiveName +
+                                'not found');
+
+                        } else {
+
+                            this.lambdaBuffer = data;
+                            resolve(this.lambdaBuffer);
+
+                        }
+
+                    }
+                );
+
+            } else {
+
+                reject('Invalid archive name');
+
+            }
+
+        });
+
+    }
+
+    private readConfig () {
+
+        return Promise.all([
+            this.readObject(
+                GdwAwsLambda.FILE_LAMBDA_CONFIG,
+                GdwAwsLambda.FILE_LAMBDA_CONFIG
+            ).then((cfg) => {
+
+                if (GdwAwsLambdaType.isLambdaConfig(cfg) &&
+                    Util.isNEString(cfg.FunctionName) &&
+                    Util.isNEString(cfg.Handler)) {
+
+                    this.lambdaCfg = cfg;
+
+                    return this.lambdaCfg;
+
+                } else {
+
+                    // return Promise.reject('Invalid Lambda config');
+                    throw 'Invalid Lambda config';
+
+                }
+
+            }),
+            this.readObject(
+                GdwAwsLambda.FILE_LAMBDA_SECRETS,
+                GdwAwsLambda.FILE_LAMBDA_SECRETS
+            ).then((cfg): LambdaSecrets => {
+
+                if (GdwAwsLambdaType.isLambdaSecrets(cfg) &&
+                    Util.isNEString(cfg.region) &&
+                    Util.isNEString(cfg.Role)) {
+
+                    this.lambdaSecrets = cfg;
+
+                    return this.lambdaSecrets;
+
+                } else {
+
+                    // return Promise.reject('Invalid Lambda secrets');
+                    throw 'Invalid Lambda secrets';
+
+                }
+
+            })
+        ]);
+
+    }
+
+    private checkAndInit (file: string, type: string): Promise<string> {
+
+        return this.readObject(file, type)
+            .then(
+                () => {
+
+                    return `File ${file} exists already`;
+
+                },
+                () => {
+
+                    return this.initFile(file);
+
+                }
+            );
+    }
+
+    private initFile (file: string): Promise<string> {
+
+        let obj = GdwAwsLambda
+            .createObject(file);
+
+        if (obj) {
+
+            return this.writeObject(file, obj);
+
+        } else {
+
+            // return Promise.reject(`Unable to create object for ${file}`);
+            throw `Unable to create object for ${file}`;
+        }
+
+    }
+
+    private readObject (file: string, checkType?: string): Promise<object> {
 
         return new Promise((resolve, reject) => {
 
@@ -856,15 +817,19 @@ class GdwAwsLambda {
         });
     }
 
-    private static checkObject (object: LambdaConfig |
-                                    LambdaSecrets |
-                                    Array<LambdaTest>,
-                                checkType: string): string {
+    //endregion
+
+    //region Static methods
+
+    private static checkObject (
+        object: LambdaConfig | LambdaSecrets | Array<LambdaTest>,
+        checkType: string
+    ): string {
 
         switch (checkType) {
             case GdwAwsLambda.FILE_LAMBDA_CONFIG:
 
-                if (isLambdaConfig(object)) {
+                if (GdwAwsLambdaType.isLambdaConfig(object)) {
 
                     return '';
 
@@ -875,7 +840,7 @@ class GdwAwsLambda {
 
             case GdwAwsLambda.FILE_LAMBDA_SECRETS:
 
-                if (isLambdaSecrets(object)) {
+                if (GdwAwsLambdaType.isLambdaSecrets(object)) {
 
                     return '';
 
@@ -893,7 +858,7 @@ class GdwAwsLambda {
 
                     for (i = 0; i < length; i++) {
 
-                        if (!isLambdaTest(object[i])) {
+                        if (!GdwAwsLambdaType.isLambdaTest(object[i])) {
 
                             return 'Invalid lambda tests';
                         }
@@ -912,19 +877,18 @@ class GdwAwsLambda {
         }
     }
 
-    private static createObject (type: string): LambdaConfig |
-        LambdaSecrets |
-        Array<LambdaTest> |
-        null {
+    private static createObject (
+        type: string
+    ): LambdaConfig | LambdaSecrets | Array<LambdaTest> | null {
 
         switch (type) {
             case GdwAwsLambda.FILE_LAMBDA_CONFIG:
 
                 return {
-                    archiveName: '',
+                    archiveName: 'archive.zip',
                     FunctionName: '',
                     Description: '',
-                    Handler: '',
+                    Handler: 'index.handler',
                     Publish: false,
                     Runtime: 'nodejs6.10',
                     MemorySize: 128,
@@ -958,6 +922,8 @@ class GdwAwsLambda {
         }
 
     }
+
+    //endregion
 }
 
 module.exports = GdwAwsLambda;
