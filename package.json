@@ -19,7 +19,7 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "^2.79.0"
+    "aws-sdk": "^2.80.0"
   },
   "devDependencies": {
     "@types/node": "~8.0.6",
@@ -34,6 +34,7 @@
     "email": "de.waele.gilles@gmail.com"
   },
   "scripts": {
+    "clean-install": "rm -rf node_modules && rm -f package-lock.json && npm i && npm i",
     "build-debug": "tsc --sourceMap true",
     "build": "tsc",
     "create-test": "npm pack && mv *.tgz test/",
