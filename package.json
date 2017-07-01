@@ -38,7 +38,6 @@
     "build-debug": "tsc --sourceMap true",
     "build": "tsc",
     "create-test": "npm pack && mv *.tgz test/",
-    "publish": "tsc && npm publish",
     "clean": "rm -rf lib/*"
   }
 }
