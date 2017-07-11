@@ -19,10 +19,10 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "^2.80.0"
+    "aws-sdk": "^2.82.0"
   },
   "devDependencies": {
-    "@types/node": "~8.0.6",
+    "@types/node": "^8.0.10",
     "typescript": "~2.4.1"
   },
   "repository": {
