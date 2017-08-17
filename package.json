@@ -19,11 +19,11 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "^2.82.0"
+    "aws-sdk": "^2.100.0"
   },
   "devDependencies": {
-    "@types/node": "^8.0.10",
-    "typescript": "~2.4.1"
+    "@types/node": "^8.0.23",
+    "typescript": "~2.4.2"
   },
   "repository": {
     "type": "git",
@@ -38,6 +38,8 @@
     "build-debug": "tsc --sourceMap true",
     "build": "tsc",
     "create-test": "npm pack && mv *.tgz test/",
-    "clean": "rm -rf lib/*"
+    "clean": "rm -rf lib/*",
+    "dep-install": "rm -rf node_modules && npm i",
+    "dep-sync-update": "rm -rf node_modules package-lock.json && npm i && npm i"
   }
 }

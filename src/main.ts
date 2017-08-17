@@ -18,7 +18,7 @@ import {
 import Lambda = require('aws-sdk/clients/lambda');
 
 // Local dependencies
-import Util from './Util';
+import Util from './util';
 import {
     DeployOptions,
     LambdaConfig,
