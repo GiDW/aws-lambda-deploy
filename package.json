@@ -19,27 +19,20 @@
     "helper"
   ],
   "dependencies": {
-    "aws-sdk": "^2.122.0"
+    "aws-sdk": "^2.281.1"
   },
   "devDependencies": {
-    "@types/node": "^8.0.23",
-    "typescript": "~2.5.2"
+    "@types/node": "^10.5.3",
+    "typescript": "~2.9.2"
   },
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:GiDW/aws-node-lambda-helper.git"
-  },
+  "repository": "github:GiDW/aws-node-lambda-helper.git",
   "bugs": {
     "url": "https://github.com/GiDW/aws-node-lambda-helper/issues",
     "email": "de.waele.gilles@gmail.com"
   },
   "scripts": {
-    "clean-install": "rm -rf node_modules && rm -f package-lock.json && npm i && npm i",
     "build-debug": "tsc --sourceMap true",
     "build": "tsc",
-    "create-test": "npm pack && mv *.tgz test/",
-    "clean": "rm -rf lib/*",
-    "dep-install": "rm -rf node_modules && npm i",
-    "dep-sync-update": "rm -rf node_modules package-lock.json && npm i && npm i"
+    "clean": "rm -rf lib/*"
   }
 }
